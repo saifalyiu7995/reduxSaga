@@ -1,20 +1,22 @@
 // ============================================================
 // LOGIN SCREEN — The UI component (Presentation Layer)
 // ============================================================
-// WHERE THIS FITS:  This is what the user SEES and INTERACTS with.
+// CLEAN ARCHITECTURE LAYER: Presentation (outermost)
+//
+// This layer only knows about:
+//   • Domain actions (from authSlice) — to dispatch
+//   • Domain selectors (from authSelector) — to read state
+//   • React / React Native — for rendering
+//
+// It does NOT know about the data layer (API, models, repositories).
 //
 // DATA FLOW OVERVIEW:
-//   1. User types email/password → stored in local React state (useState)
-//   2. User taps "Login" → component calls dispatch(loginRequest({ email, password }))
-//   3. Redux receives the action → reducer sets isLoading=true
-//   4. Saga intercepts the action → calls mock API → waits for response
+//   1. User types email/password → local React state (useState)
+//   2. User taps "Login" → dispatch(loginRequest({ email, password }))
+//   3. Reducer sets isLoading=true → UI shows spinner
+//   4. Saga intercepts → calls repository → waits for response
 //   5. API responds → saga dispatches loginSuccess or loginFailure
-//   6. Reducer updates state → this component RE-RENDERS with new data
-//   7. UI shows either welcome message (success) or error (failure)
-//
-// KEY HOOKS:
-//   • useSelector — reads data FROM the Redux store (like a "getter")
-//   • useDispatch — returns the dispatch function to SEND actions TO the store
+//   6. Reducer updates state → this component RE-RENDERS
 
 import React, {useState} from 'react';
 import {
@@ -29,51 +31,43 @@ import {
   ScrollView,
 } from 'react-native';
 import {useDispatch, useSelector} from 'react-redux';
-import {RootState, AppDispatch} from '../store';
-import {loginRequest, logout} from '../store/auth/authSlice';
+import {AppDispatch} from '../../store';
+import {loginRequest, logout} from '../domain/slice/authSlice';
+import {
+  selectUser,
+  selectAuthLoading,
+  selectAuthError,
+} from '../domain/slice/authSelector';
 
 const LoginScreen: React.FC = () => {
   // ── Local state for form inputs ──
-  // These are NOT in Redux because they're temporary UI-only values.
-  // Only "important" shared state goes into Redux.
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   // ── Connect to Redux ──
-  // useDispatch: gives us the dispatch() function to send actions to the store
   const dispatch = useDispatch<AppDispatch>();
 
-  // useSelector: reads a slice of Redux state and re-renders when it changes.
-  // Here we grab the entire auth state: { user, isLoading, error }
-  // `state.auth` corresponds to the `auth: authReducer` key in store/index.ts
-  const {user, isLoading, error} = useSelector(
-    (state: RootState) => state.auth,
-  );
+  // ── Read from Redux via domain selectors ──
+  const user = useSelector(selectUser);
+  const isLoading = useSelector(selectAuthLoading);
+  const error = useSelector(selectAuthError);
 
-  // ── Handler: fires when user taps the Login button ──
+  // ── Handler: Login ──
   const handleLogin = () => {
-    // Guard: don't submit empty fields
     if (!email.trim() || !password.trim()) {
       return;
     }
-
-    // Dispatch the loginRequest action with credentials.
-    // This does TWO things simultaneously:
-    //   1. The REDUCER sets isLoading = true (shows spinner)
-    //   2. The SAGA intercepts this action and calls the mock API
     dispatch(loginRequest({email: email.trim(), password}));
   };
 
-  // ── Handler: fires when user taps Logout ──
+  // ── Handler: Logout ──
   const handleLogout = () => {
-    // Dispatch logout action → reducer resets state → UI shows login form again
     dispatch(logout());
     setEmail('');
     setPassword('');
   };
 
   // ── RENDER: Logged-in view ──
-  // If user exists in Redux state, it means login was successful
   if (user) {
     return (
       <View style={styles.container}>
@@ -98,7 +92,6 @@ const LoginScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      // On iOS the keyboard pushes content up; on Android it resizes
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -110,7 +103,6 @@ const LoginScreen: React.FC = () => {
           <Text style={styles.subtitle}>Sign in to continue</Text>
 
           {/* ── Error message ── */}
-          {/* Shows only when `error` is not null in Redux state */}
           {error && (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>⚠️ {error}</Text>
@@ -124,11 +116,11 @@ const LoginScreen: React.FC = () => {
             placeholder="test@test.com"
             placeholderTextColor="#999"
             value={email}
-            onChangeText={setEmail} // Updates local state, NOT Redux
+            onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            editable={!isLoading} // Disable input while API is loading
+            editable={!isLoading}
           />
 
           {/* ── Password input ── */}
@@ -138,8 +130,8 @@ const LoginScreen: React.FC = () => {
             placeholder="password123"
             placeholderTextColor="#999"
             value={password}
-            onChangeText={setPassword} // Updates local state, NOT Redux
-            secureTextEntry // Hides the password characters
+            onChangeText={setPassword}
+            secureTextEntry
             editable={!isLoading}
           />
 
@@ -150,17 +142,15 @@ const LoginScreen: React.FC = () => {
               isLoading && styles.loginButtonDisabled,
             ]}
             onPress={handleLogin}
-            disabled={isLoading} // Prevent double-taps while loading
-          >
+            disabled={isLoading}>
             {isLoading ? (
-              // Show spinner while the saga is calling the API
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.loginButtonText}>Login</Text>
             )}
           </TouchableOpacity>
 
-          {/* ── Hint for the learner ── */}
+          {/* ── Hint ── */}
           <View style={styles.hintContainer}>
             <Text style={styles.hintTitle}>Mock Credentials:</Text>
             <Text style={styles.hintText}>Email: test@test.com</Text>
@@ -176,7 +166,7 @@ const LoginScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e', // Dark background
+    backgroundColor: '#1a1a2e',
   },
   scrollContent: {
     flexGrow: 1,
@@ -187,7 +177,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#16213e',
     borderRadius: 20,
     padding: 32,
-    // Subtle shadow
     shadowColor: '#0f3460',
     shadowOffset: {width: 0, height: 8},
     shadowOpacity: 0.3,
@@ -275,7 +264,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  // ── Logged-in styles ──
   welcomeIcon: {
     fontSize: 56,
     textAlign: 'center',

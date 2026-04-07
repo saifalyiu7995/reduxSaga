@@ -23,8 +23,8 @@ import {Provider} from 'react-redux';
 // Our configured Redux store (with saga middleware already running)
 import store from './src/store';
 
-// The login screen component
-import LoginScreen from './src/screens/LoginScreen';
+// The login screen — from the auth feature's presentation layer
+import LoginScreen from './src/auth/presentation/LoginScreen';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';

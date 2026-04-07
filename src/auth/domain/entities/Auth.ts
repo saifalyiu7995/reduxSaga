@@ -1,8 +1,16 @@
 // ============================================================
-// AUTH TYPES — Shared TypeScript interfaces for the auth feature
+// AUTH ENTITIES — Domain types for the auth feature
 // ============================================================
-// WHY: We define types in one place so every layer (API, Redux, UI)
-// speaks the same "language". This prevents bugs from mismatched shapes.
+// CLEAN ARCHITECTURE LAYER: Domain (innermost)
+//
+// These are the CORE business objects of authentication.
+// They have NO dependencies on any framework, API, or library.
+// Every other layer depends on these — never the reverse.
+//
+// WHY SEPARATE FROM MODELS?
+//   Models (data layer) represent the raw API response shape.
+//   Entities represent what YOUR APP cares about.
+//   A mapper in the data layer converts Model → Entity.
 
 /**
  * What the user types into the login form.
@@ -14,14 +22,15 @@ export interface LoginCredentials {
 }
 
 /**
- * What the API returns on a successful login.
- * This travels from the API → Saga → Redux Store → UI.
+ * The core User entity in the domain.
+ * This is the "clean" representation of a user throughout the app.
+ * It travels from: Data Layer → Saga → Redux Store → UI.
  */
 export interface User {
   id: string;
   name: string;
   email: string;
-  token: string; // In a real app this would be a JWT token
+  token: string;
 }
 
 /**
